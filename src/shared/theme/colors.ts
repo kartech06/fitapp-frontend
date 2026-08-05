@@ -23,6 +23,7 @@ export interface AppColors {
   // Text
   text: string;
   textDim: string;
+  textSecondary: string; // Alias for textDim
   textOnPrimary: string; // Text color when placed on primary bg
 
   // Borders
@@ -54,6 +55,7 @@ export const darkColors: AppColors = {
 
   text: '#F2F2EA',
   textDim: '#8A8F98',
+  textSecondary: '#8A8F98',
   textOnPrimary: '#0B0E11',
 
   border: '#262C31',
@@ -81,6 +83,7 @@ export const lightColors: AppColors = {
 
   text: '#0B0E11',
   textDim: '#5B6066',
+  textSecondary: '#5B6066',
   textOnPrimary: '#FFFFFF',
 
   border: '#E0E0DA',
