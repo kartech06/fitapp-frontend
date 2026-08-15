@@ -375,18 +375,33 @@ export function WorkoutScreen() {
                   >
                     <Card style={{ marginBottom: spacing.sm }}>
                       <View style={styles.exerciseRow}>
-                        <View style={styles.exerciseIndex}>
-                          <Text style={[typo.caption, { color: colors.textDim }]}>
-                            {i + 1}
-                          </Text>
+                        <View style={[styles.exerciseIndex, exercise.completedToday && { backgroundColor: `${colors.success}20` }]}>
+                          {exercise.completedToday ? (
+                            <Ionicons name="checkmark" size={16} color={colors.success} />
+                          ) : (
+                            <Text style={[typo.caption, { color: colors.textDim }]}>
+                              {i + 1}
+                            </Text>
+                          )}
                         </View>
                         <View style={styles.exerciseContent}>
-                          <Text
-                            style={[typo.body, { color: colors.text, fontWeight: '600' }]}
-                            numberOfLines={1}
-                          >
-                            {exercise.exercise.name}
-                          </Text>
+                          {exercise.actualExerciseName ? (
+                            <>
+                              <Text style={[typo.body, { color: colors.text, fontWeight: '600' }]} numberOfLines={1}>
+                                {exercise.actualExerciseName}
+                              </Text>
+                              <Text style={[typo.caption, { color: colors.textDim, textDecorationLine: 'line-through' }]} numberOfLines={1}>
+                                {exercise.exercise.name}
+                              </Text>
+                            </>
+                          ) : (
+                            <Text
+                              style={[typo.body, { color: colors.text, fontWeight: '600' }]}
+                              numberOfLines={1}
+                            >
+                              {exercise.exercise.name}
+                            </Text>
+                          )}
                           <Text style={[typo.caption, { color: colors.textDim, marginTop: 2 }]}>
                             {exercise.sets} sets × {exercise.reps} reps
                             {exercise.targetWeightKg
@@ -439,16 +454,20 @@ export function WorkoutScreen() {
             <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
               {!todayWorkout?.isRestDay && (todayWorkout?.exercises?.length ?? 0) > 0 && (
                 <Button
-                  title="Start Workout 💪"
+                  title={todayWorkout?.isCompletedToday ? "Review Workout" : "Start Workout 💪"}
+                  variant={todayWorkout?.isCompletedToday ? "outline" : "primary"}
                   onPress={() => {
                     navigation.navigate('WorkoutLog' as never, {
                       plannedExercises: todayWorkout?.exercises?.map((e) => ({
-                        id: e.id,
+                        planExerciseId: e.id,
                         exerciseId: e.exerciseId || e.id,
                         name: e.exercise.name,
+                        actualExerciseName: e.actualExerciseName,
                         sets: e.sets,
                         reps: e.reps,
                         weightKg: e.targetWeightKg,
+                        completedToday: e.completedToday,
+                        primaryMuscles: e.exercise.primaryMuscles,
                       })),
                     } as never);
                   }}

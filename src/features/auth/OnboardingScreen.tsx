@@ -27,6 +27,9 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../../shared/navigation/types';
 
 import { useQueryClient } from '@tanstack/react-query';
 import { useTheme, type Theme } from '../../shared/hooks/useTheme';
@@ -105,6 +108,7 @@ export function OnboardingFlow({
   const { isFree } = usePlan();
   const { step, data, updateData, nextStep, prevStep, reset } = useOnboardingStore();
   const queryClient = useQueryClient();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const slideAnim = useRef(new Animated.Value(0)).current;
   const [loading, setLoading] = useState(false);
@@ -169,8 +173,7 @@ export function OnboardingFlow({
       queryClient.invalidateQueries({ queryKey: ['user'] });
       queryClient.invalidateQueries({ queryKey: ['me'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      useAuthStore.getState().setOnboarded(true);
-      reset();
+      navigation.replace('BodyAnalysis', { photoType: 'ONBOARDING' });
     }
   };
 
@@ -328,129 +331,129 @@ function StepBasicInfo({
       keyboardShouldPersistTaps="handled"
     >
       <Text style={[typo.h2, { color: colors.text, marginBottom: spacing.xs }]}>
-        Let's get to know you
-      </Text>
-      <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.xl }]}>
-        We'll use this to calculate your fitness plan
-      </Text>
+          Let's get to know you
+        </Text>
+        <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.xl }]}>
+          We'll use this to calculate your fitness plan
+        </Text>
 
-      {/* Gender */}
-      <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.sm }]}>
-        Gender
-      </Text>
-      <View style={[styles.chipRow, { marginBottom: spacing.lg }]}>
-        {(['MALE', 'FEMALE'] as Gender[]).map((g) => (
-          <TouchableOpacity
-            key={g}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: data.gender === g ? colors.primary : colors.surface,
-                borderColor: data.gender === g ? colors.primary : colors.border,
-                borderRadius: borderRadius.md,
-                paddingVertical: spacing.ms,
-                paddingHorizontal: spacing.lg,
-                marginRight: spacing.sm,
-              },
-            ]}
-            onPress={() => updateData({ gender: g })}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={g === 'MALE' ? 'male' : 'female'}
-              size={20}
-              color={data.gender === g ? colors.textOnPrimary : colors.text}
-            />
-            <Text
+        {/* Gender */}
+        <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.sm }]}>
+          Gender
+        </Text>
+        <View style={[styles.chipRow, { marginBottom: spacing.lg }]}>
+          {(['MALE', 'FEMALE'] as Gender[]).map((g) => (
+            <TouchableOpacity
+              key={g}
               style={[
-                typo.buttonSmall,
+                styles.chip,
                 {
-                  color: data.gender === g ? colors.textOnPrimary : colors.text,
-                  marginLeft: spacing.sm,
+                  backgroundColor: data.gender === g ? colors.primary : colors.surface,
+                  borderColor: data.gender === g ? colors.primary : colors.border,
+                  borderRadius: borderRadius.md,
+                  paddingVertical: spacing.ms,
+                  paddingHorizontal: spacing.lg,
+                  marginRight: spacing.sm,
                 },
               ]}
+              onPress={() => updateData({ gender: g })}
+              activeOpacity={0.7}
             >
-              {g === 'MALE' ? 'Male' : 'Female'}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+              <Ionicons
+                name={g === 'MALE' ? 'male' : 'female'}
+                size={20}
+                color={data.gender === g ? colors.textOnPrimary : colors.text}
+              />
+              <Text
+                style={[
+                  typo.buttonSmall,
+                  {
+                    color: data.gender === g ? colors.textOnPrimary : colors.text,
+                    marginLeft: spacing.sm,
+                  },
+                ]}
+              >
+                {g === 'MALE' ? 'Male' : 'Female'}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
 
-      {/* Date of Birth */}
-      <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.sm }]}>
-        Date of Birth
-      </Text>
-      <TextInput
-        style={[
-          styles.textInput,
-          {
-            backgroundColor: colors.surface2,
-            borderColor: colors.border,
-            borderRadius: borderRadius.md,
-            color: colors.text,
-            ...typo.body,
-            marginBottom: spacing.lg,
-          },
-        ]}
-        placeholder="YYYY-MM-DD"
-        placeholderTextColor={colors.textDim}
-        value={data.dob ?? ''}
-        onChangeText={(text) => updateData({ dob: text })}
-        keyboardType="numbers-and-punctuation"
-      />
+        {/* Date of Birth */}
+        <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.sm }]}>
+          Date of Birth
+        </Text>
+        <TextInput
+          style={[
+            styles.textInput,
+            {
+              backgroundColor: colors.surface2,
+              borderColor: colors.border,
+              borderRadius: borderRadius.md,
+              color: colors.text,
+              ...typo.body,
+              marginBottom: spacing.lg,
+            },
+          ]}
+          placeholder="YYYY-MM-DD"
+          placeholderTextColor={colors.textDim}
+          value={data.dob ?? ''}
+          onChangeText={(text) => updateData({ dob: text })}
+          keyboardType="numbers-and-punctuation"
+        />
 
-      {/* Height */}
-      <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.sm }]}>
-        Height (cm)
-      </Text>
-      <TextInput
-        style={[
-          styles.textInput,
-          {
-            backgroundColor: colors.surface2,
-            borderColor: colors.border,
-            borderRadius: borderRadius.md,
-            color: colors.text,
-            ...typo.body,
-            marginBottom: spacing.lg,
-          },
-        ]}
-        placeholder="170"
-        placeholderTextColor={colors.textDim}
-        value={data.heightCm?.toString() ?? ''}
-        onChangeText={(text) => {
-          const n = parseFloat(text);
-          updateData({ heightCm: isNaN(n) ? null : n });
-        }}
-        keyboardType="numeric"
-      />
+        {/* Height */}
+        <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.sm }]}>
+          Height (cm)
+        </Text>
+        <TextInput
+          style={[
+            styles.textInput,
+            {
+              backgroundColor: colors.surface2,
+              borderColor: colors.border,
+              borderRadius: borderRadius.md,
+              color: colors.text,
+              ...typo.body,
+              marginBottom: spacing.lg,
+            },
+          ]}
+          placeholder="170"
+          placeholderTextColor={colors.textDim}
+          value={data.heightCm?.toString() ?? ''}
+          onChangeText={(text) => {
+            const n = parseFloat(text);
+            updateData({ heightCm: isNaN(n) ? null : n });
+          }}
+          keyboardType="numeric"
+        />
 
-      {/* Weight */}
-      <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.sm }]}>
-        Weight (kg)
-      </Text>
-      <TextInput
-        style={[
-          styles.textInput,
-          {
-            backgroundColor: colors.surface2,
-            borderColor: colors.border,
-            borderRadius: borderRadius.md,
-            color: colors.text,
-            ...typo.body,
-            marginBottom: spacing.md,
-          },
-        ]}
-        placeholder="70"
-        placeholderTextColor={colors.textDim}
-        value={data.weightKg?.toString() ?? ''}
-        onChangeText={(text) => {
-          const n = parseFloat(text);
-          updateData({ weightKg: isNaN(n) ? null : n });
-        }}
-        keyboardType="numeric"
-      />
-    </ScrollView>
+        {/* Weight */}
+        <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.sm }]}>
+          Weight (kg)
+        </Text>
+        <TextInput
+          style={[
+            styles.textInput,
+            {
+              backgroundColor: colors.surface2,
+              borderColor: colors.border,
+              borderRadius: borderRadius.md,
+              color: colors.text,
+              ...typo.body,
+              marginBottom: spacing.md,
+            },
+          ]}
+          placeholder="70"
+          placeholderTextColor={colors.textDim}
+          value={data.weightKg?.toString() ?? ''}
+          onChangeText={(text) => {
+            const n = parseFloat(text);
+            updateData({ weightKg: isNaN(n) ? null : n });
+          }}
+          keyboardType="numeric"
+        />
+      </ScrollView>
   );
 }
 
@@ -960,6 +963,8 @@ const styles = StyleSheet.create({
   },
   step: {
     width: SCREEN_WIDTH,
+    height: '100%',
+    flexShrink: 0,
   },
   chipRow: {
     flexDirection: 'row',

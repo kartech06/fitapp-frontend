@@ -48,8 +48,14 @@ interface SetRow {
 interface ExerciseLogCard {
   tempId: string;
   exerciseId?: string;
+  planExerciseId?: string;
+  originalExerciseId?: string;
   name: string;
   sets: SetRow[];
+  completedToday?: boolean;
+  originalName?: string;
+  actualExerciseName?: string;
+  primaryMuscles?: string[];
 }
 
 export function WorkoutLogScreen() {
@@ -65,8 +71,12 @@ export function WorkoutLogScreen() {
     if (planned && planned.length > 0) {
       return planned.map((item, idx) => ({
         tempId: `plan-${idx}-${Date.now()}`,
-        exerciseId: item.exerciseId || item.id,
+        exerciseId: item.exerciseId || item.planExerciseId,
+        planExerciseId: item.planExerciseId,
         name: item.name,
+        actualExerciseName: item.actualExerciseName,
+        completedToday: item.completedToday,
+        primaryMuscles: item.primaryMuscles,
         sets: Array.from({ length: item.sets || 3 }, (_, sIdx) => ({
           id: `set-${idx}-${sIdx}`,
           setNum: sIdx + 1,
@@ -91,6 +101,15 @@ export function WorkoutLogScreen() {
   const [newSetsCount, setNewSetsCount] = useState('3');
   const [newRepsCount, setNewRepsCount] = useState('10');
   const [newWeight, setNewWeight] = useState('');
+  const [substituteExerciseIndex, setSubstituteExerciseIndex] = useState<number | null>(null);
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setSearchQuery('');
+    setCustomExerciseName('');
+    setSelectedExercise(null);
+    setSubstituteExerciseIndex(null);
+  };
 
   // Timer useEffect
   useEffect(() => {
@@ -162,48 +181,107 @@ export function WorkoutLogScreen() {
       Alert.alert('Error', 'Please enter or select an exercise name.');
       return;
     }
-    const setsNum = parseInt(newSetsCount, 10) || 3;
-    const repsVal = (parseInt(newRepsCount, 10) || 10).toString();
-    const weightVal = newWeight.trim();
 
-    const newExCard: ExerciseLogCard = {
-      tempId: `custom-${Date.now()}`,
-      exerciseId: selectedExercise?.id,
-      name: nameToAdd,
-      sets: Array.from({ length: setsNum }, (_, sIdx) => ({
-        id: `set-new-${sIdx}-${Date.now()}`,
-        setNum: sIdx + 1,
-        reps: repsVal,
-        weightKg: weightVal,
-        completed: false,
-      })),
-    };
+    if (substituteExerciseIndex !== null) {
+      setExercises((prev) => {
+        const next = JSON.parse(JSON.stringify(prev)) as ExerciseLogCard[];
+        const target = next[substituteExerciseIndex];
+        target.originalName = target.originalName || target.name;
+        target.originalExerciseId = target.originalExerciseId || target.exerciseId;
+        target.name = nameToAdd;
+        target.exerciseId = selectedExercise?.id;
+        if (selectedExercise) {
+          target.primaryMuscles = selectedExercise.primaryMuscles;
+        }
+        return next;
+      });
+    } else {
+      const setsNum = parseInt(newSetsCount, 10) || 3;
+      const repsVal = (parseInt(newRepsCount, 10) || 10).toString();
+      const weightVal = newWeight.trim();
 
-    setExercises((prev) => [...prev, newExCard]);
-    setShowAddModal(false);
-    setSearchQuery('');
-    setCustomExerciseName('');
-    setSelectedExercise(null);
+      const newExCard: ExerciseLogCard = {
+        tempId: `custom-${Date.now()}`,
+        exerciseId: selectedExercise?.id,
+        name: nameToAdd,
+        primaryMuscles: selectedExercise?.primaryMuscles,
+        sets: Array.from({ length: setsNum }, (_, sIdx) => ({
+          id: `set-new-${sIdx}-${Date.now()}`,
+          setNum: sIdx + 1,
+          reps: repsVal,
+          weightKg: weightVal,
+          completed: false,
+        })),
+      };
+
+      setExercises((prev) => [...prev, newExCard]);
+    }
+
+    handleCloseAddModal();
+  };
+
+  const handleFinishWorkout = () => {
+    // Only consider exercises that are not already completed today
+    const pendingExercises = exercises.filter((ex) => !ex.completedToday);
+
+    if (pendingExercises.length === 0) {
+      Alert.alert('No Exercises', 'There are no new exercises to log.');
+      return;
+    }
+
+    // Find partially completed exercises (at least 1 checked, at least 1 unchecked)
+    const partialExercises = pendingExercises.map((ex) => {
+      const checkedCount = ex.sets.filter((s) => s.completed).length;
+      const uncheckedCount = ex.sets.length - checkedCount;
+      return {
+        name: ex.name,
+        uncheckedCount,
+        isPartial: checkedCount > 0 && uncheckedCount > 0
+      };
+    }).filter((ex) => ex.isPartial);
+
+    if (partialExercises.length > 0) {
+      const breakdown = partialExercises
+        .map((p) => `${p.uncheckedCount} set${p.uncheckedCount !== 1 ? 's' : ''} left on ${p.name}`)
+        .join(', ');
+
+      Alert.alert(
+        'Unfinished Sets',
+        `You're almost there! ${breakdown}. Finish anyway? Only completed sets will be saved.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Finish Anyway', style: 'default', onPress: () => finishWorkoutMutation.mutate() },
+        ]
+      );
+    } else {
+      finishWorkoutMutation.mutate();
+    }
   };
 
   const finishWorkoutMutation = useMutation({
     mutationFn: async () => {
-      if (exercises.length === 0) {
-        throw new Error('No exercises in this workout session.');
+      // Only include exercises that have at least one set marked done AND are not already completed today
+      const exercisesWithCompletedSets = exercises.filter(
+        (ex) => !ex.completedToday && ex.sets.some((s) => s.completed)
+      );
+
+      if (exercisesWithCompletedSets.length === 0) {
+        throw new Error('No sets marked as completed. Check the sets you finished before submitting.');
       }
 
       // For each exercise, log the session to backend
-      const logPromises = exercises.map(async (ex) => {
+      const logPromises = exercisesWithCompletedSets.map(async (ex) => {
         const completedSets = ex.sets.filter((s) => s.completed);
-        const setsToUse = completedSets.length > 0 ? completedSets : ex.sets;
-        const firstSet = setsToUse[0];
+        const firstSet = completedSets[0];
 
         return logWorkout({
           exerciseId: ex.exerciseId,
           exerciseName: ex.name,
-          sets: setsToUse.length,
+          sets: completedSets.length,
           reps: parseInt(firstSet.reps, 10) || 10,
           weightKg: parseFloat(firstSet.weightKg) || undefined,
+          planExerciseId: ex.planExerciseId,
+          substitutedFromExerciseId: ex.originalExerciseId,
         });
       });
 
@@ -217,7 +295,7 @@ export function WorkoutLogScreen() {
       setIsRestTimerActive(false);
       Alert.alert(
         'Workout Completed! 🔥',
-        `Great job! Successfully logged ${loggedResults.length} exercises.`,
+        `Great job! Logged ${loggedResults.length} of ${exercises.length} exercises.`,
         [{ text: 'Awesome', onPress: () => navigation.goBack() }]
       );
     },
@@ -279,18 +357,61 @@ export function WorkoutLogScreen() {
             />
           </Card>
         ) : (
-          exercises.map((ex, exIdx) => (
+          exercises.map((ex, exIdx) => {
+            if (ex.completedToday) {
+              return (
+                <Card key={ex.tempId} style={{ marginBottom: spacing.md, padding: spacing.md, opacity: 0.6, backgroundColor: colors.surface }}>
+                  <View style={[styles.exHeaderRow, { marginBottom: 0 }]}>
+                    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="checkmark-circle" size={24} color={colors.success} style={{ marginRight: spacing.sm }} />
+                      <View>
+                        <Text style={[typo.h3, { color: colors.textSecondary }]}>
+                          {ex.actualExerciseName || ex.name}
+                        </Text>
+                        {ex.actualExerciseName && (
+                          <Text style={[typo.caption, { color: colors.textDim, textDecorationLine: 'line-through' }]}>
+                            {ex.name}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <Text style={[typo.caption, { color: colors.textSecondary }]}>Already completed today</Text>
+                  </View>
+                </Card>
+              );
+            }
+
+            return (
             <Card key={ex.tempId} style={{ marginBottom: spacing.md, padding: spacing.md }}>
               <View style={styles.exHeaderRow}>
                 <View style={{ flex: 1 }}>
                   <Text style={[typo.h3, { color: colors.text }]}>{ex.name}</Text>
+                  {ex.originalName && (
+                    <Text style={[typo.caption, { color: colors.primary, marginTop: 2 }]}>
+                      Swapped from: {ex.originalName}
+                    </Text>
+                  )}
                 </View>
-                <TouchableOpacity
-                  onPress={() => handleRemoveExercise(exIdx)}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                  <Ionicons name="trash-outline" size={20} color={colors.error} />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setSubstituteExerciseIndex(exIdx);
+                      const query = ex.primaryMuscles?.[0] || '';
+                      setSearchQuery(query);
+                      setCustomExerciseName(query);
+                      setShowAddModal(true);
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="swap-horizontal" size={22} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveExercise(exIdx)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="trash-outline" size={20} color={colors.error} />
+                  </TouchableOpacity>
+                </View>
               </View>
 
               {/* Sets Header */}
@@ -398,7 +519,8 @@ export function WorkoutLogScreen() {
                 </Text>
               </TouchableOpacity>
             </Card>
-          ))
+            );
+          })
         )}
 
         {/* Add Exercise CTA */}
@@ -474,7 +596,7 @@ export function WorkoutLogScreen() {
       >
         <Button
           title={finishWorkoutMutation.isPending ? 'Saving Workout...' : 'Finish Workout 💪'}
-          onPress={() => finishWorkoutMutation.mutate()}
+          onPress={handleFinishWorkout}
           loading={finishWorkoutMutation.isPending}
           disabled={exercises.length === 0 || finishWorkoutMutation.isPending}
         />
@@ -485,7 +607,7 @@ export function WorkoutLogScreen() {
         visible={showAddModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowAddModal(false)}
+        onRequestClose={handleCloseAddModal}
       >
         <View style={styles.modalOverlay}>
           <View
@@ -502,8 +624,10 @@ export function WorkoutLogScreen() {
             ]}
           >
             <View style={styles.exHeaderRow}>
-              <Text style={[typo.h2, { color: colors.text }]}>Add Exercise</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+              <Text style={[typo.h2, { color: colors.text }]}>
+                {substituteExerciseIndex !== null ? 'Substitute Exercise' : 'Add Exercise'}
+              </Text>
+              <TouchableOpacity onPress={handleCloseAddModal}>
                 <Ionicons name="close" size={24} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
@@ -559,40 +683,42 @@ export function WorkoutLogScreen() {
               )}
             </View>
 
-            <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
-              <View style={{ flex: 1 }}>
-                <Text style={[typo.label, { color: colors.text, marginBottom: spacing.xs }]}>SETS</Text>
-                <TextInput
-                  style={[styles.numCell, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: borderRadius.md, color: colors.text }, typo.h3]}
-                  keyboardType="numeric"
-                  value={newSetsCount}
-                  onChangeText={setNewSetsCount}
-                />
+            {substituteExerciseIndex === null && (
+              <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[typo.label, { color: colors.text, marginBottom: spacing.xs }]}>SETS</Text>
+                  <TextInput
+                    style={[styles.numCell, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: borderRadius.md, color: colors.text }, typo.h3]}
+                    keyboardType="numeric"
+                    value={newSetsCount}
+                    onChangeText={setNewSetsCount}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[typo.label, { color: colors.text, marginBottom: spacing.xs }]}>REPS</Text>
+                  <TextInput
+                    style={[styles.numCell, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: borderRadius.md, color: colors.text }, typo.h3]}
+                    keyboardType="numeric"
+                    value={newRepsCount}
+                    onChangeText={setNewRepsCount}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[typo.label, { color: colors.text, marginBottom: spacing.xs }]}>KG (OPT)</Text>
+                  <TextInput
+                    style={[styles.numCell, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: borderRadius.md, color: colors.text }, typo.h3]}
+                    keyboardType="decimal-pad"
+                    placeholder="0"
+                    placeholderTextColor={colors.textSecondary}
+                    value={newWeight}
+                    onChangeText={setNewWeight}
+                  />
+                </View>
               </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[typo.label, { color: colors.text, marginBottom: spacing.xs }]}>REPS</Text>
-                <TextInput
-                  style={[styles.numCell, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: borderRadius.md, color: colors.text }, typo.h3]}
-                  keyboardType="numeric"
-                  value={newRepsCount}
-                  onChangeText={setNewRepsCount}
-                />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[typo.label, { color: colors.text, marginBottom: spacing.xs }]}>KG (OPT)</Text>
-                <TextInput
-                  style={[styles.numCell, { backgroundColor: colors.surface, borderColor: colors.border, borderRadius: borderRadius.md, color: colors.text }, typo.h3]}
-                  keyboardType="decimal-pad"
-                  placeholder="0"
-                  placeholderTextColor={colors.textSecondary}
-                  value={newWeight}
-                  onChangeText={setNewWeight}
-                />
-              </View>
-            </View>
+            )}
 
             <Button
-              title="Add to Workout 💪"
+              title={substituteExerciseIndex !== null ? "Substitute Exercise 🔄" : "Add to Workout 💪"}
               onPress={handleAddExerciseToWorkout}
               disabled={!searchQuery.trim()}
             />

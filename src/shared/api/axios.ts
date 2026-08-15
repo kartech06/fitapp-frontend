@@ -57,7 +57,6 @@ const processQueue = (error: unknown, token: string | null) => {
 
 api.interceptors.response.use(
   (response) => {
-    console.log('BEFORE UNWRAP', response.config.url, JSON.stringify(response.data).slice(0, 100));
     if (
       response.data &&
       typeof response.data === 'object' &&
@@ -65,10 +64,8 @@ api.interceptors.response.use(
       'data' in response.data
     ) {
       const unwrapped = { ...response, data: response.data.data };
-      console.log('AFTER UNWRAP', response.config.url, JSON.stringify(unwrapped.data).slice(0, 100));
       return unwrapped;
     }
-    console.log('NO UNWRAP CONDITION MET', response.config.url);
     return response;
   },
   async (error: AxiosError) => {

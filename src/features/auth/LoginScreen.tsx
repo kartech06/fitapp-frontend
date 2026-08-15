@@ -25,6 +25,7 @@ import { useTheme } from '../../shared/hooks/useTheme';
 import { Button } from '../../shared/components/Button';
 import { Input } from '../../shared/components/Input';
 import { useAuthStore } from '../../shared/store/authStore';
+import { useOnboardingStore } from '../../shared/store/onboardingStore';
 import { login } from '../../shared/api/auth.api';
 import { getMe } from '../../shared/api/user.api';
 import { loginSchema, type LoginFormData } from './schemas';
@@ -63,26 +64,36 @@ export function LoginScreen() {
       console.log('accessToken type:', typeof authRes.accessToken);
       console.log('refreshToken type:', typeof authRes.refreshToken);
 
-      // 2. Save tokens + user
-      await useAuthStore.getState().setAuth({
-        user: authRes.user,
+      // 2. Persist tokens so the Axios interceptor can authenticate
+      //    the getMe() call, but DON'T set isAuthenticated yet —
+      //    that would trigger RootNavigator to re-render prematurely.
+      await useAuthStore.getState().setTokens({
         accessToken: authRes.accessToken,
         refreshToken: authRes.refreshToken,
       });
 
-      // 3. Fetch full user to check onboarding status + plan
+      // 3. Fetch full user profile to determine onboarding status
       const me = await getMe();
+
+      const hasGoal = !!me.goal;
+
+      // 4. Set auth state atomically: isAuthenticated AND isOnboarded
+      //    flip together in one Zustand set(), so RootNavigator never
+      //    sees the intermediate state that would flash OnboardingScreen.
+      await useAuthStore.getState().setAuth({
+        user: authRes.user,
+        accessToken: authRes.accessToken,
+        refreshToken: authRes.refreshToken,
+        isOnboarded: hasGoal,
+      });
 
       if (me.subscription) {
         useAuthStore.getState().setPlan(me.subscription.plan);
       }
 
-      if (me.goal) {
-        // Onboarding complete — RootNavigator will show AppStack
-        useAuthStore.getState().setOnboarded(true);
-      } else {
+      if (!hasGoal) {
         // Needs onboarding
-        navigation.replace('Onboarding');
+        useOnboardingStore.getState().reset();
       }
     } catch (err: any) {
       console.log('LOGIN ERROR:', JSON.stringify(err, Object.getOwnPropertyNames(err)));
@@ -195,6 +206,17 @@ export function LoginScreen() {
           loading={loading}
           style={{ marginTop: spacing.sm }}
         />
+
+        {/* Forgot password link */}
+        <TouchableOpacity
+          style={{ alignSelf: 'center', marginTop: spacing.lg }}
+          onPress={() => navigation.navigate('ForgotPassword')}
+          activeOpacity={0.7}
+        >
+          <Text style={[typo.body, { color: colors.primary, fontWeight: '600' }]}>
+            Forgot Password?
+          </Text>
+        </TouchableOpacity>
 
         {/* Divider */}
         <View style={[styles.divider, { marginVertical: spacing.lg }]}>

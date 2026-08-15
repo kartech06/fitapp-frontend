@@ -10,6 +10,7 @@ import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS, type SubscriptionPlan } from '../constants';
+import { useOnboardingStore } from './onboardingStore';
 
 export interface AuthUser {
   id: string;
@@ -33,6 +34,7 @@ interface AuthActions {
     user: AuthUser;
     accessToken: string;
     refreshToken: string;
+    isOnboarded?: boolean;
   }) => Promise<void>;
   setTokens: (params: {
     accessToken: string;
@@ -56,15 +58,19 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
 
   // ─── Actions ───
 
-  setAuth: async ({ user, accessToken, refreshToken }) => {
+  setAuth: async ({ user, accessToken, refreshToken, isOnboarded = false }) => {
     await SecureStore.setItemAsync(STORAGE_KEYS.ACCESS_TOKEN, accessToken);
     await SecureStore.setItemAsync(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+    if (isOnboarded) {
+      await AsyncStorage.setItem('isOnboarded', JSON.stringify(true));
+    }
 
     set({
       user,
       accessToken,
       refreshToken,
       isAuthenticated: true,
+      isOnboarded,
       isLoading: false,
     });
   },
@@ -89,6 +95,8 @@ export const useAuthStore = create<AuthState & AuthActions>()((set, get) => ({
     await SecureStore.deleteItemAsync(STORAGE_KEYS.ACCESS_TOKEN);
     await SecureStore.deleteItemAsync(STORAGE_KEYS.REFRESH_TOKEN);
     await AsyncStorage.removeItem('isOnboarded');
+
+    useOnboardingStore.getState().reset();
 
     set({
       user: null,

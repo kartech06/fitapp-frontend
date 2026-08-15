@@ -11,6 +11,8 @@ import { SplashScreen } from '../../features/auth/SplashScreen';
 import { LoginScreen } from '../../features/auth/LoginScreen';
 import { RegisterScreen } from '../../features/auth/RegisterScreen';
 import { OnboardingScreen } from '../../features/auth/OnboardingScreen';
+import { ForgotPasswordScreen } from '../../features/auth/ForgotPasswordScreen';
+import { ResetPasswordScreen } from '../../features/auth/ResetPasswordScreen';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
 
@@ -26,6 +28,8 @@ export function AuthStack() {
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
     </Stack.Navigator>
   );
 }

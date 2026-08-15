@@ -50,6 +50,8 @@ export interface PlanExerciseInfo {
   equipment: string;
   primaryMuscles: string[];
   mechanic: string | null;
+  imageUrls?: string[];
+  instructions?: { instruction: string }[];
 }
 
 export interface PlanExercise {
@@ -62,6 +64,8 @@ export interface PlanExercise {
   targetWeightKg: number | null;
   isAutoSubstituted: boolean;
   exercise: PlanExerciseInfo;
+  completedToday?: boolean;
+  actualExerciseName?: string;
 }
 
 export interface PlanDay {
@@ -100,6 +104,7 @@ export interface TodayWorkoutResponse {
   dayName?: string;
   weekNumber?: number;
   exercises?: PlanExercise[];
+  isCompletedToday?: boolean;
 }
 
 export interface CompleteWeekResponse {
@@ -182,6 +187,8 @@ export interface CreateWorkoutLogRequest {
   durationMins?: number;
   loggedAt?: string;
   notes?: string;
+  planExerciseId?: string;
+  substitutedFromExerciseId?: string;
 }
 
 export interface ExerciseMaster {

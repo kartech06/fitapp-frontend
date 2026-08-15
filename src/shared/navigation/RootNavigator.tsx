@@ -29,6 +29,7 @@ import { EditGoalsScreen } from '../../features/profile/EditGoalsScreen';
 import { EditProfileScreen } from '../../features/profile/EditProfileScreen';
 import { SubscriptionScreen } from '../../features/profile/SubscriptionScreen';
 import { OnboardingScreen } from '../../features/auth/OnboardingScreen';
+import { BodyAnalysisScreen } from '../../features/auth/BodyAnalysisScreen';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -60,7 +61,10 @@ export function RootNavigator() {
           <Stack.Screen name="Auth" component={AuthStack} />
         ) : !isOnboarded ? (
           // State 2: Logged in but not onboarded → show onboarding directly
-          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+          <>
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            <Stack.Screen name="BodyAnalysis" component={BodyAnalysisScreen} />
+          </>
         ) : (
           // State 3: Fully authenticated and onboarded → show main app
           <>
@@ -71,6 +75,7 @@ export function RootNavigator() {
             <Stack.Screen name="EditGoals" component={EditGoalsScreen} />
             <Stack.Screen name="EditProfile" component={EditProfileScreen} />
             <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+            <Stack.Screen name="BodyAnalysis" component={BodyAnalysisScreen} />
           </>
         )}
       </Stack.Navigator>

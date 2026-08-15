@@ -14,6 +14,7 @@ import { useThemeStore } from '../../shared/store/themeStore';
 import { useAuthStore } from '../../shared/store/authStore';
 import { usePlan } from '../../shared/hooks/usePlan';
 import { getMe } from '../../shared/api/user.api';
+import { getLatestBodyAnalysis } from '../../shared/api/body-analysis.api';
 import { GOAL_LABELS, ACTIVITY_LABELS, DIET_LABELS } from '../../shared/constants';
 import { formatCalories } from '../../shared/utils/format';
 
@@ -29,6 +30,11 @@ export function ProfileScreen() {
   const { data: me } = useQuery({
     queryKey: ['me'],
     queryFn: getMe,
+  });
+
+  const { data: latestAnalysis } = useQuery({
+    queryKey: ['bodyAnalysis', 'latest'],
+    queryFn: getLatestBodyAnalysis,
   });
 
   const user = me || useAuthStore.getState().user;
@@ -114,9 +120,39 @@ export function ProfileScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* 2. Body Metrics */}
+      {/* 2. Progress Photos */}
       <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.xs, marginLeft: spacing.xs }]}>
-        2. BODY METRICS
+        2. PROGRESS PHOTOS
+      </Text>
+      <TouchableOpacity onPress={() => navigation.navigate('BodyAnalysis', { photoType: 'PROGRESS' })} activeOpacity={0.7}>
+        <Card style={{ marginBottom: spacing.lg }}>
+          <View style={[styles.row, { justifyContent: 'space-between' }]}>
+            <View style={styles.row}>
+              <Ionicons name="camera" size={20} color={colors.primary} style={{ marginRight: spacing.sm }} />
+              <Text style={[typo.h3, { color: colors.text }]}>Body Analysis</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textDim} />
+          </View>
+          {latestAnalysis ? (
+            <View style={{ marginTop: spacing.sm, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={[typo.caption, { color: colors.textDim }]}>Last checked</Text>
+              <Text style={[typo.bodySmall, { color: colors.text, fontWeight: '600' }]}>
+                {new Date(latestAnalysis.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+              </Text>
+            </View>
+          ) : (
+            <View style={{ marginTop: spacing.sm, paddingTop: spacing.xs, borderTopWidth: 1, borderTopColor: colors.border }}>
+              <Text style={[typo.bodySmall, { color: colors.textDim }]}>
+                Get your first analysis
+              </Text>
+            </View>
+          )}
+        </Card>
+      </TouchableOpacity>
+
+      {/* 3. Body Metrics */}
+      <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.xs, marginLeft: spacing.xs }]}>
+        3. BODY METRICS
       </Text>
       <TouchableOpacity onPress={() => navigation.navigate('EditProfile')} activeOpacity={0.7}>
         <Card style={{ marginBottom: spacing.lg }}>
@@ -150,9 +186,9 @@ export function ProfileScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* 3. Preferences */}
+      {/* 4. Preferences */}
       <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.xs, marginLeft: spacing.xs }]}>
-        3. PREFERENCES
+        4. PREFERENCES
       </Text>
       <Card style={{ marginBottom: spacing.lg }}>
         <TouchableOpacity style={[styles.row, { paddingVertical: spacing.xs }]} onPress={() => navigation.navigate('EditProfile')}>
@@ -175,9 +211,9 @@ export function ProfileScreen() {
         </View>
       </Card>
 
-      {/* 4. App Settings */}
+      {/* 5. App Settings */}
       <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.xs, marginLeft: spacing.xs }]}>
-        4. APP SETTINGS
+        5. APP SETTINGS
       </Text>
       <Card style={{ marginBottom: spacing.lg }}>
         <View style={[styles.row, { paddingVertical: spacing.xs }]}>
@@ -198,9 +234,9 @@ export function ProfileScreen() {
         </View>
       </Card>
 
-      {/* 5. Subscription */}
+      {/* 6. Subscription */}
       <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.xs, marginLeft: spacing.xs }]}>
-        5. SUBSCRIPTION
+        6. SUBSCRIPTION
       </Text>
       <TouchableOpacity onPress={() => navigation.navigate('Subscription')} activeOpacity={0.7}>
         <Card style={{ marginBottom: spacing.lg }}>
@@ -232,9 +268,9 @@ export function ProfileScreen() {
         </Card>
       </TouchableOpacity>
 
-      {/* 6. Account */}
+      {/* 7. Account */}
       <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.xs, marginLeft: spacing.xs }]}>
-        6. ACCOUNT
+        7. ACCOUNT
       </Text>
       <Card style={{ marginBottom: spacing.xxl }}>
         <TouchableOpacity style={styles.row} onPress={handleLogout}>

@@ -13,20 +13,30 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { CompositeNavigationProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '../../shared/hooks/useTheme';
+import { usePlan } from '../../shared/hooks/usePlan';
 import { useAuthStore } from '../../shared/store/authStore';
 import { ProgressRing } from '../../shared/components/ProgressRing';
 import { MacroBar } from '../../shared/components/MacroBar';
 import { Card } from '../../shared/components/Card';
 import { Badge } from '../../shared/components/Badge';
+import { AIPanel } from '../../shared/components/AIPanel';
+import { Button } from '../../shared/components/Button';
 import { getDashboardToday, type DashboardAggregated } from '../../shared/api/dashboard.api';
+import { getTodayWorkout } from '../../shared/api/workout.api';
 import { logWater } from '../../shared/api/water.api';
 import { formatCalories } from '../../shared/utils/format';
-import type { AppTabParamList } from '../../shared/navigation/types';
+import type { AppTabParamList, RootStackParamList } from '../../shared/navigation/types';
 import { QuickLogWorkoutSheet } from '../workout/QuickLogWorkoutSheet';
+import { MealActionSheet } from '../nutrition/MealActionSheet';
 
-type DashboardNav = BottomTabNavigationProp<AppTabParamList, 'Today'>;
+type DashboardNav = CompositeNavigationProp<
+  BottomTabNavigationProp<AppTabParamList, 'Today'>,
+  NativeStackNavigationProp<RootStackParamList>
+>;
 
 export function DashboardScreen() {
   const { colors, typography: typo, spacing, borderRadius } = useTheme();
@@ -34,13 +44,22 @@ export function DashboardScreen() {
   const navigation = useNavigation<DashboardNav>();
   const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
+  const { isBasic, isFree } = usePlan();
 
   const [showQuickLog, setShowQuickLog] = useState(false);
+  const [showMealAction, setShowMealAction] = useState(false);
 
   // Fetch dashboard + meals + workouts for today
   const { data, isLoading, refetch, isRefetching } = useQuery<DashboardAggregated>({
     queryKey: ['dashboard'],
     queryFn: getDashboardToday,
+  });
+
+  // Fetch AI workout if basic
+  const { data: todayWorkout, isLoading: isLoadingWorkout, refetch: refetchWorkout } = useQuery({
+    queryKey: ['todayWorkout'],
+    queryFn: getTodayWorkout,
+    enabled: isBasic,
   });
 
   // Log water mutation
@@ -54,6 +73,13 @@ export function DashboardScreen() {
     },
   });
 
+  const handleRefresh = () => {
+    refetch();
+    if (isBasic) {
+      refetchWorkout();
+    }
+  };
+
   const todayStr = new Date().toLocaleDateString('en-US', {
     weekday: 'short',
     month: 'short',
@@ -61,7 +87,7 @@ export function DashboardScreen() {
   });
 
   // Render skeleton while loading
-  if (isLoading || !data) {
+  if (isLoading || !data || (isBasic && isLoadingWorkout)) {
     return (
       <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top }]}>
         <View style={[styles.skeletonHeader, { backgroundColor: colors.surface2, borderRadius: borderRadius.md }]} />
@@ -90,7 +116,7 @@ export function DashboardScreen() {
         refreshControl={
           <RefreshControl
             refreshing={isRefetching}
-            onRefresh={refetch}
+            onRefresh={handleRefresh}
             tintColor={colors.primary}
           />
         }
@@ -140,6 +166,78 @@ export function DashboardScreen() {
           </View>
         </Card>
 
+        {/* AI WORKOUT PANEL / UPSELL */}
+        {isFree ? (
+          <View
+            style={[
+              styles.upsell,
+              {
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderRadius: borderRadius.lg,
+                padding: spacing.md,
+                marginBottom: spacing.xl,
+              },
+            ]}
+          >
+            <Ionicons name="sparkles" size={20} color={colors.secondary} />
+            <Text
+              style={[
+                typo.bodySmall,
+                { color: colors.textDim, marginLeft: spacing.sm, flex: 1 },
+              ]}
+            >
+              Upgrade to Basic to unlock personalized AI workout plans, diet plans, and more.
+            </Text>
+          </View>
+        ) : isBasic && todayWorkout ? (
+          <AIPanel label="Today's Plan" style={{ marginBottom: spacing.xl }}>
+            {todayWorkout.isRestDay ? (
+              <Text style={[typo.body, { color: colors.text }]}>Today is a rest day. Take it easy!</Text>
+            ) : (
+              <View>
+                {todayWorkout.isCompletedToday ? (
+                  <>
+                    <Text style={[typo.h3, { color: colors.success || colors.primary, marginBottom: spacing.xs }]}>
+                      ✅ Workout Complete!
+                    </Text>
+                    <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.md }]}>
+                      {todayWorkout.dayName} — {todayWorkout.exercises?.length || 0} exercises
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Text style={[typo.h3, { color: colors.text }]}>
+                      {todayWorkout.dayName}
+                    </Text>
+                    <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.md }]}>
+                      {todayWorkout.exercises?.length || 0} exercises planned
+                    </Text>
+                  </>
+                )}
+                <Button
+                  title={todayWorkout.isCompletedToday ? "Review Workout" : "View Full Workout"}
+                  variant={todayWorkout.isCompletedToday ? "outline" : "primary"}
+                  onPress={() => {
+                    const plannedExercises = todayWorkout.exercises?.map((ex) => ({
+                      planExerciseId: ex.id,
+                      exerciseId: ex.exerciseId,
+                      name: ex.exercise.name,
+                      actualExerciseName: ex.actualExerciseName,
+                      sets: ex.sets,
+                      reps: ex.reps,
+                      weightKg: ex.targetWeightKg,
+                      completedToday: ex.completedToday,
+                      primaryMuscles: ex.exercise.primaryMuscles,
+                    })) || [];
+                    navigation.navigate('WorkoutLog', { plannedExercises });
+                  }}
+                />
+              </View>
+            )}
+          </AIPanel>
+        ) : null}
+
         {/* LOGGED TODAY LEDGER */}
         <Text style={[typo.h3, { color: colors.text, marginBottom: spacing.md }]}>Logged Today</Text>
 
@@ -153,35 +251,37 @@ export function DashboardScreen() {
         ) : (
           <View>
             {/* Water */}
-            <View style={[styles.ledgerRow, { borderBottomColor: colors.border }]}>
-              <View style={styles.ledgerIconContainer}>
-                <Ionicons name="water" size={24} color="#0ea5e9" />
-              </View>
-              <View style={styles.ledgerContent}>
-                <Text style={[typo.body, { color: colors.text }]}>Water</Text>
-                <Text style={[typo.caption, { color: colors.textDim }]}>
-                  {dashboard.water.consumed_ml} / {dashboard.water.goal_ml} ml
-                </Text>
-                {/* Progress bar */}
-                <View style={[styles.waterBarBg, { backgroundColor: colors.surface2 }]}>
-                  <View
-                    style={[
-                      styles.waterBarFill,
-                      {
-                        backgroundColor: '#0ea5e9',
-                        width: `${Math.min(100, (dashboard.water.consumed_ml / dashboard.water.goal_ml) * 100)}%`,
-                      },
-                    ]}
-                  />
+            <Card style={{ padding: 0, marginBottom: spacing.sm }}>
+              <View style={[styles.ledgerRow, { borderBottomWidth: 0, paddingHorizontal: spacing.md }]}>
+                <View style={styles.ledgerIconContainer}>
+                  <Ionicons name="water" size={24} color="#0ea5e9" />
                 </View>
+                <View style={styles.ledgerContent}>
+                  <Text style={[typo.body, { color: colors.text }]}>Water</Text>
+                  <Text style={[typo.caption, { color: colors.textDim }]}>
+                    {dashboard.water.consumed_ml} / {dashboard.water.goal_ml} ml
+                  </Text>
+                  {/* Progress bar */}
+                  <View style={[styles.waterBarBg, { backgroundColor: colors.surface2 }]}>
+                    <View
+                      style={[
+                        styles.waterBarFill,
+                        {
+                          backgroundColor: '#0ea5e9',
+                          width: `${Math.min(100, (dashboard.water.consumed_ml / dashboard.water.goal_ml) * 100)}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+                <TouchableOpacity
+                  onPress={() => waterMutation.mutate()}
+                  style={[styles.waterAddBtn, { backgroundColor: colors.surface2 }]}
+                >
+                  <Ionicons name="add" size={20} color={colors.text} />
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                onPress={() => waterMutation.mutate()}
-                style={[styles.waterAddBtn, { backgroundColor: colors.surface2 }]}
-              >
-                <Ionicons name="add" size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
+            </Card>
 
             {/* Meals */}
             {Object.entries(meals.meals).map(([mealType, mealList]) => {
@@ -191,72 +291,73 @@ export function DashboardScreen() {
               const label = mealType.replace('_', ' ');
 
               return (
-                <TouchableOpacity
-                  key={mealType}
-                  style={[styles.ledgerRow, { borderBottomColor: colors.border }]}
-                  onPress={() => navigation.navigate('Nutrition')}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.ledgerIconContainer}>
-                    <Ionicons name="restaurant" size={24} color={colors.primary} />
-                  </View>
-                  <View style={styles.ledgerContent}>
-                    <Text style={[typo.body, { color: colors.text, textTransform: 'capitalize' }]}>{label}</Text>
-                    <Text style={[typo.caption, { color: colors.textDim }]} numberOfLines={1}>
-                      {mealList.map(m => m.name).join(', ')}
-                    </Text>
-                  </View>
-                  <Text style={[typo.h3, { color: colors.text }]}>{formatCalories(groupCalories)} kcal</Text>
-                </TouchableOpacity>
+                <Card key={mealType} style={{ padding: 0, marginBottom: spacing.sm }}>
+                  <TouchableOpacity
+                    style={[styles.ledgerRow, { borderBottomWidth: 0, paddingHorizontal: spacing.md }]}
+                    onPress={() => navigation.navigate('Nutrition')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.ledgerIconContainer}>
+                      <Ionicons name="restaurant" size={24} color={colors.primary} />
+                    </View>
+                    <View style={styles.ledgerContent}>
+                      <Text style={[typo.body, { color: colors.text, textTransform: 'capitalize' }]}>{label}</Text>
+                      <Text style={[typo.caption, { color: colors.textDim }]} numberOfLines={1}>
+                        {mealList.map(m => m.name).join(', ')}
+                      </Text>
+                    </View>
+                    <Text style={[typo.h3, { color: colors.text }]}>{formatCalories(groupCalories)} kcal</Text>
+                  </TouchableOpacity>
+                </Card>
               );
             })}
 
             {/* Workouts */}
             {workouts.workouts.map((w) => (
-              <TouchableOpacity
-                key={w.id}
-                style={[styles.ledgerRow, { borderBottomColor: colors.border }]}
-                onPress={() => navigation.navigate('Workout')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.ledgerIconContainer}>
-                  <Ionicons name="barbell" size={24} color={colors.primary} />
-                </View>
-                <View style={styles.ledgerContent}>
-                  <Text style={[typo.body, { color: colors.text }]}>{w.exerciseName}</Text>
-                  <Text style={[typo.caption, { color: colors.textDim }]}>
-                    {w.sets} sets
-                    {w.reps ? ` × ${w.reps} reps` : ''}
-                    {w.weightKg ? ` @ ${w.weightKg}kg` : ''}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+              <Card key={w.id} style={{ padding: 0, marginBottom: spacing.sm }}>
+                <TouchableOpacity
+                  style={[styles.ledgerRow, { borderBottomWidth: 0, paddingHorizontal: spacing.md }]}
+                  onPress={() => navigation.navigate('Workout')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.ledgerIconContainer}>
+                    <Ionicons name="barbell" size={24} color={colors.primary} />
+                  </View>
+                  <View style={styles.ledgerContent}>
+                    <Text style={[typo.body, { color: colors.text }]}>{w.exerciseName}</Text>
+                    <Text style={[typo.caption, { color: colors.textDim }]}>
+                      {w.sets} sets
+                      {w.reps ? ` × ${w.reps} reps` : ''}
+                      {w.weightKg ? ` @ ${w.weightKg}kg` : ''}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </Card>
             ))}
 
             {/* Weight */}
             {dashboard.weight.latest !== null && (
-              <View style={[styles.ledgerRow, { borderBottomColor: colors.border, borderBottomWidth: 0 }]}>
-                <View style={styles.ledgerIconContainer}>
-                  <Ionicons name="scale" size={24} color={colors.primary} />
+              <Card style={{ padding: 0, marginBottom: spacing.sm }}>
+                <View style={[styles.ledgerRow, { borderBottomWidth: 0, paddingHorizontal: spacing.md }]}>
+                  <View style={styles.ledgerIconContainer}>
+                    <Ionicons name="scale" size={24} color={colors.primary} />
+                  </View>
+                  <View style={styles.ledgerContent}>
+                    <Text style={[typo.body, { color: colors.text }]}>Weight</Text>
+                    <Text style={[typo.caption, { color: colors.textDim }]}>Current</Text>
+                  </View>
+                  <Text style={[typo.h3, { color: colors.text }]}>{dashboard.weight.latest} kg</Text>
                 </View>
-                <View style={styles.ledgerContent}>
-                  <Text style={[typo.body, { color: colors.text }]}>Weight</Text>
-                  <Text style={[typo.caption, { color: colors.textDim }]}>Current</Text>
-                </View>
-                <Text style={[typo.h3, { color: colors.text }]}>{dashboard.weight.latest} kg</Text>
-              </View>
+              </Card>
             )}
           </View>
         )}
 
         {/* QUICK ACTIONS ROW */}
-        <View style={[styles.quickActions, { marginTop: spacing.xl, marginBottom: spacing.xl }]}>
+        <View style={[styles.quickActions, { marginTop: spacing.lg, marginBottom: spacing.xl }]}>
           <TouchableOpacity
             style={[styles.quickActionButton, { backgroundColor: colors.surface, borderRadius: borderRadius.md, borderColor: colors.border }]}
-            onPress={() => {
-              // TODO: Open meal logger bottom sheet (Phase 4)
-              console.log('Open meal logger');
-            }}
+            onPress={() => setShowMealAction(true)}
           >
             <Ionicons name="restaurant" size={20} color={colors.primary} />
             <Text style={[typo.buttonSmall, { color: colors.text, marginLeft: spacing.xs }]}>Log Meal</Text>
@@ -285,6 +386,10 @@ export function DashboardScreen() {
         visible={showQuickLog}
         onClose={() => setShowQuickLog(false)}
       />
+      <MealActionSheet
+        visible={showMealAction}
+        onClose={() => setShowMealAction(false)}
+      />
     </View>
   );
 }
@@ -312,6 +417,11 @@ const styles = StyleSheet.create({
   macroLabels: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+  },
+  upsell: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    borderWidth: 1,
   },
   quickActions: {
     flexDirection: 'row',

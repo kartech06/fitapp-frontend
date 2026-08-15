@@ -2,10 +2,10 @@
  * ExerciseDetailModal — Shows exercise details when tapping a card.
  *
  * Displays: name, body part, equipment, sets/reps/weight target,
- * and per-set "Mark as done" toggles.
+ * instructional steps, and media placeholder.
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -36,29 +37,9 @@ export function ExerciseDetailModal({
   const { colors, typography: typo, spacing, borderRadius } = useTheme();
   const insets = useSafeAreaInsets();
 
-  // Track which sets are marked done
-  const [completedSets, setCompletedSets] = useState<boolean[]>([]);
-
-  // Reset when exercise changes
-  useEffect(() => {
-    if (exercise) {
-      setCompletedSets(new Array(exercise.sets).fill(false));
-    }
-  }, [exercise]);
-
   if (!exercise) return null;
 
   const { exercise: info } = exercise;
-  const allDone = completedSets.every(Boolean);
-  const doneCount = completedSets.filter(Boolean).length;
-
-  const toggleSet = (index: number) => {
-    setCompletedSets((prev) => {
-      const next = [...prev];
-      next[index] = !next[index];
-      return next;
-    });
-  };
 
   return (
     <Modal
@@ -81,7 +62,7 @@ export function ExerciseDetailModal({
               borderTopLeftRadius: borderRadius.xl,
               borderTopRightRadius: borderRadius.xl,
               paddingBottom: insets.bottom + spacing.lg,
-              maxHeight: SCREEN_HEIGHT * 0.8,
+              maxHeight: SCREEN_HEIGHT * 0.9,
             },
           ]}
         >
@@ -225,105 +206,114 @@ export function ExerciseDetailModal({
               </View>
             </View>
 
-            {/* Set Tracking */}
-            <Text
-              style={[
-                typo.label,
-                {
-                  color: colors.textDim,
-                  marginBottom: spacing.sm,
-                  textTransform: 'uppercase',
-                },
-              ]}
-            >
-              Sets — {doneCount}/{exercise.sets} done
-            </Text>
-
-            {completedSets.map((done, i) => (
-              <TouchableOpacity
-                key={i}
-                onPress={() => toggleSet(i)}
+            {/* Media Section (Images / Video Placeholder) */}
+            <View style={{ marginBottom: spacing.lg }}>
+              <Text
                 style={[
-                  styles.setRow,
+                  typo.label,
                   {
-                    backgroundColor: done ? `${colors.primary}18` : colors.surface,
-                    borderColor: done ? colors.primary : colors.border,
-                    borderRadius: borderRadius.md,
+                    color: colors.textDim,
                     marginBottom: spacing.sm,
-                    padding: spacing.ms,
+                    textTransform: 'uppercase',
                   },
                 ]}
-                activeOpacity={0.7}
               >
-                <View style={styles.setLeft}>
-                  <View
-                    style={[
-                      styles.setCircle,
-                      {
-                        backgroundColor: done
-                          ? colors.primary
-                          : 'transparent',
-                        borderColor: done ? colors.primary : colors.border,
-                        borderRadius: 12,
-                      },
-                    ]}
-                  >
-                    {done && (
-                      <Ionicons
-                        name="checkmark"
-                        size={14}
-                        color={colors.textOnPrimary}
-                      />
-                    )}
-                  </View>
-                  <Text
-                    style={[
-                      typo.body,
-                      {
-                        color: done ? colors.primary : colors.text,
-                        marginLeft: spacing.sm,
-                        fontWeight: '600',
-                      },
-                    ]}
-                  >
-                    Set {i + 1}
-                  </Text>
+                Demonstration
+              </Text>
+              {info.imageUrls && info.imageUrls.length > 0 ? (
+                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                  {info.imageUrls.map((url, idx) => (
+                    <Image
+                      key={idx}
+                      source={{ uri: url }}
+                      style={[
+                        styles.mediaBox,
+                        {
+                          backgroundColor: colors.surface,
+                          borderRadius: borderRadius.md,
+                          borderColor: colors.border,
+                          borderWidth: 1,
+                        },
+                      ]}
+                      resizeMode="cover"
+                    />
+                  ))}
                 </View>
-                <Text style={[typo.bodySmall, { color: colors.textDim }]}>
-                  {exercise.reps} reps
-                  {exercise.targetWeightKg ? ` @ ${exercise.targetWeightKg}kg` : ''}
-                </Text>
-              </TouchableOpacity>
-            ))}
-
-            {/* All Done Message */}
-            {allDone && exercise.sets > 0 && (
-              <View
-                style={[
-                  styles.allDoneBox,
-                  {
-                    backgroundColor: `${colors.success}18`,
-                    borderRadius: borderRadius.md,
-                    padding: spacing.md,
-                    marginTop: spacing.sm,
-                  },
-                ]}
-              >
-                <Ionicons name="checkmark-circle" size={24} color={colors.success} />
-                <Text
+              ) : (
+                <View
                   style={[
-                    typo.body,
+                    styles.mediaPlaceholder,
                     {
-                      color: colors.success,
-                      fontWeight: '600',
-                      marginLeft: spacing.sm,
+                      backgroundColor: colors.surface2,
+                      borderRadius: borderRadius.md,
+                      borderColor: colors.border,
                     },
                   ]}
                 >
-                  Exercise complete! 🎉
-                </Text>
-              </View>
-            )}
+                  <Ionicons name="play-circle-outline" size={48} color={colors.textDim} />
+                  <Text style={[typo.bodySmall, { color: colors.textDim, marginTop: spacing.xs }]}>
+                    Video demo coming soon
+                  </Text>
+                </View>
+              )}
+            </View>
+
+            {/* Instructions Section */}
+            <View>
+              <Text
+                style={[
+                  typo.label,
+                  {
+                    color: colors.textDim,
+                    marginBottom: spacing.sm,
+                    textTransform: 'uppercase',
+                  },
+                ]}
+              >
+                How to do it
+              </Text>
+              
+              {info.instructions && info.instructions.length > 0 ? (
+                <View style={{ gap: spacing.md }}>
+                  {info.instructions.map((step, idx) => (
+                    <View key={idx} style={styles.stepRow}>
+                      <View
+                        style={[
+                          styles.stepNumber,
+                          {
+                            backgroundColor: colors.surface2,
+                            borderRadius: borderRadius.sm,
+                          },
+                        ]}
+                      >
+                        <Text style={[typo.caption, { color: colors.text, fontWeight: '700' }]}>
+                          {idx + 1}
+                        </Text>
+                      </View>
+                      <Text style={[typo.body, { color: colors.text, flex: 1, lineHeight: 22 }]}>
+                        {step.instruction}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              ) : (
+                <View
+                  style={[
+                    styles.placeholderBox,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                      borderRadius: borderRadius.md,
+                    },
+                  ]}
+                >
+                  <Ionicons name="document-text-outline" size={24} color={colors.textDim} />
+                  <Text style={[typo.body, { color: colors.textDim, marginLeft: spacing.sm }]}>
+                    Form instructions coming soon.
+                  </Text>
+                </View>
+              )}
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -381,25 +371,33 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
   },
-  setRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  mediaBox: {
+    width: 120,
+    height: 120,
+  },
+  mediaPlaceholder: {
+    height: 160,
     borderWidth: 1,
-  },
-  setLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  setCircle: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  allDoneBox: {
+  stepRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  stepNumber: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+    marginTop: 2,
+  },
+  placeholderBox: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    borderWidth: 1,
   },
 });

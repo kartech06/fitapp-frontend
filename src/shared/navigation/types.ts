@@ -9,15 +9,19 @@ import type { NavigatorScreenParams } from '@react-navigation/native';
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
   Onboarding: undefined;
+  BodyAnalysis: { photoType: 'ONBOARDING' | 'PROGRESS' };
   App: NavigatorScreenParams<AppTabParamList>;
   WorkoutLog?: {
     plannedExercises?: {
-      id?: string;
+      planExerciseId?: string;
       exerciseId?: string;
       name: string;
+      actualExerciseName?: string;
       sets: number;
       reps: number;
       weightKg?: number | null;
+      completedToday?: boolean;
+      primaryMuscles?: string[];
     }[];
   };
   WorkoutHistory: undefined;
@@ -34,6 +38,8 @@ export type AuthStackParamList = {
   Login: undefined;
   Register: undefined;
   Onboarding: undefined;
+  ForgotPassword: undefined;
+  ResetPassword: { email: string };
 };
 
 // ─── App Tab Navigator ───
