@@ -29,6 +29,7 @@ export type RootStackParamList = {
   EditGoals: undefined;
   EditProfile: undefined;
   Subscription: undefined;
+  ProgressHistory: undefined;
 };
 
 // ─── Auth Stack ───

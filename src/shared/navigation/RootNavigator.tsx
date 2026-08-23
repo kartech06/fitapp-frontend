@@ -28,6 +28,7 @@ import { DietPlanScreen } from '../../features/nutrition/DietPlanScreen';
 import { EditGoalsScreen } from '../../features/profile/EditGoalsScreen';
 import { EditProfileScreen } from '../../features/profile/EditProfileScreen';
 import { SubscriptionScreen } from '../../features/profile/SubscriptionScreen';
+import { ProgressHistoryScreen } from '../../features/profile/ProgressHistoryScreen';
 import { OnboardingScreen } from '../../features/auth/OnboardingScreen';
 import { BodyAnalysisScreen } from '../../features/auth/BodyAnalysisScreen';
 import type { RootStackParamList } from './types';
@@ -75,6 +76,7 @@ export function RootNavigator() {
             <Stack.Screen name="EditGoals" component={EditGoalsScreen} />
             <Stack.Screen name="EditProfile" component={EditProfileScreen} />
             <Stack.Screen name="Subscription" component={SubscriptionScreen} />
+            <Stack.Screen name="ProgressHistory" component={ProgressHistoryScreen} />
             <Stack.Screen name="BodyAnalysis" component={BodyAnalysisScreen} />
           </>
         )}

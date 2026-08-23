@@ -124,7 +124,7 @@ export function ProfileScreen() {
       <Text style={[typo.label, { color: colors.textDim, marginBottom: spacing.xs, marginLeft: spacing.xs }]}>
         2. PROGRESS PHOTOS
       </Text>
-      <TouchableOpacity onPress={() => navigation.navigate('BodyAnalysis', { photoType: 'PROGRESS' })} activeOpacity={0.7}>
+      <TouchableOpacity onPress={() => navigation.navigate('ProgressHistory')} activeOpacity={0.7}>
         <Card style={{ marginBottom: spacing.lg }}>
           <View style={[styles.row, { justifyContent: 'space-between' }]}>
             <View style={styles.row}>
