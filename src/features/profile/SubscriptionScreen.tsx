@@ -1,11 +1,14 @@
-import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState } from 'react';
+import { View, Text, ScrollView, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import RazorpayCheckout from 'react-native-razorpay';
 import { getMe } from '../../shared/api/user.api';
+import { getPricing, createOrder, verifyPayment } from '../../shared/api/subscription.api';
 import { useTheme } from '../../shared/hooks/useTheme';
 import { usePlan } from '../../shared/hooks/usePlan';
+import { useAuthStore } from '../../shared/store/authStore';
 import { Button } from '../../shared/components/Button';
 import { Card } from '../../shared/components/Card';
 import { Badge } from '../../shared/components/Badge';
@@ -21,19 +24,110 @@ const FEATURES = [
 export function SubscriptionScreen() {
   const { colors, typography, spacing, borderRadius } = useTheme();
   const navigation = useNavigation();
-  const { plan, isFree } = usePlan();
+  const { plan } = usePlan();
+  const setPlan = useAuthStore(s => s.setPlan);
+  const queryClient = useQueryClient();
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   const { data: me } = useQuery({
     queryKey: ['me'],
     queryFn: getMe,
   });
 
-  const currentPlan = me?.subscription?.plan || plan;
+  const { data: pricing, isLoading: isPricingLoading } = useQuery({
+    queryKey: ['pricing'],
+    queryFn: getPricing,
+  });
 
-  const handleUpgrade = () => {
-    Alert.alert(
-      'Coming Soon 🚀',
-      'Razorpay payment gateway integration will be live shortly. Stay tuned to unlock unlimited AI coaching!'
+  const currentPlan = me?.subscription?.plan || plan;
+  const isFree = currentPlan === 'FREE';
+
+  const handleUpgrade = async () => {
+    if (isCheckingOut) return;
+    try {
+      setIsCheckingOut(true);
+      
+      // 1. Create order
+      const order = await createOrder();
+      
+      // 2. Open Razorpay Checkout
+      const options = {
+        description: 'BASIC Plan Subscription',
+        currency: order.currency,
+        key: order.keyId,
+        amount: order.amount,
+        name: 'FitApp',
+        order_id: order.orderId,
+        theme: { color: colors.primary },
+        prefill: {
+          email: me?.email || '',
+          name: me?.name || '',
+        }
+      };
+
+      RazorpayCheckout.open(options)
+        .then(async (data: any) => {
+          // 3. Verify payment
+          try {
+            await verifyPayment({
+              razorpayOrderId: data.razorpay_order_id,
+              razorpayPaymentId: data.razorpay_payment_id,
+              razorpaySignature: data.razorpay_signature,
+            });
+
+            // 4. On success
+            setPlan('BASIC');
+            queryClient.invalidateQueries({ queryKey: ['me'] });
+            queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+            
+            Alert.alert('Success', 'Welcome to FitApp Basic! 🎉');
+            navigation.goBack();
+          } catch (verifyError: any) {
+            Alert.alert('Verification Failed', verifyError?.response?.data?.message || 'Could not verify payment.');
+          } finally {
+            setIsCheckingOut(false);
+          }
+        })
+        .catch((error: any) => {
+          setIsCheckingOut(false);
+          // Handle cancellation gracefully
+          if (error.code !== 2) { // Assuming 2 is user cancelled
+            Alert.alert('Payment Failed', error.description || 'An error occurred during payment.');
+          }
+        });
+    } catch (err: any) {
+      setIsCheckingOut(false);
+      Alert.alert('Error', err?.response?.data?.message || 'Could not initialize checkout.');
+    }
+  };
+
+  const renderPricing = () => {
+    if (isPricingLoading || !pricing) {
+      return <ActivityIndicator color={colors.primary} size="small" />;
+    }
+
+    if (pricing.promoActive && pricing.promoPriceInPaise) {
+      return (
+        <View style={{ alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: spacing.xs }}>
+            <Text style={[typography.body, { color: colors.textDim, textDecorationLine: 'line-through', marginRight: spacing.sm }]}>
+              ₹{pricing.priceInPaise / 100}
+            </Text>
+            <Text style={[typography.h3, { color: colors.text }]}>
+              ₹{pricing.promoPriceInPaise / 100} / month
+            </Text>
+          </View>
+          <Text style={[typography.caption, { color: colors.primary, fontWeight: 'bold' }]}>
+            Limited time offer!
+          </Text>
+        </View>
+      );
+    }
+
+    return (
+      <Text style={[typography.h3, { color: colors.text }]}>
+        ₹{pricing.priceInPaise / 100} / month
+      </Text>
     );
   };
 
@@ -62,6 +156,11 @@ export function SubscriptionScreen() {
               ? 'You have unlimited access to all AI Coach features & logging tools.'
               : 'Upgrade to Basic to unlock AI Coaching and unlimited daily meal logs.'}
           </Text>
+          {currentPlan === 'BASIC' && me?.subscription?.currentPeriodEnd && (
+            <Text style={[typography.caption, { color: colors.primary, marginTop: spacing.sm, fontWeight: '600' }]}>
+              Active until {new Date(me.subscription.currentPeriodEnd).toLocaleDateString()}
+            </Text>
+          )}
         </Card>
 
         {/* Comparison Table */}
@@ -103,13 +202,21 @@ export function SubscriptionScreen() {
           ))}
         </Card>
 
-        {/* Upgrade Button */}
+        {/* Pricing & Upgrade */}
         {isFree ? (
-          <Button
-            title="Upgrade to Basic — ₹499 / month"
-            onPress={handleUpgrade}
-            variant="primary"
-          />
+          <View style={{ alignItems: 'center' }}>
+            <View style={{ marginBottom: spacing.md }}>
+              {renderPricing()}
+            </View>
+            <Button
+              title="Upgrade to Basic"
+              onPress={handleUpgrade}
+              variant="primary"
+              loading={isCheckingOut}
+              disabled={isCheckingOut || isPricingLoading}
+              style={{ width: '100%' }}
+            />
+          </View>
         ) : (
           <Button
             title="Current Plan: Active"

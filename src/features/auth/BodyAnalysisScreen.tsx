@@ -75,11 +75,24 @@ export function BodyAnalysisScreen() {
 
   const handleFinish = () => {
     if (photoType === 'ONBOARDING') {
-      queryClient.invalidateQueries({ queryKey: ['user'] });
-      queryClient.invalidateQueries({ queryKey: ['me'] });
-      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      useAuthStore.getState().setOnboarded(true);
-      useOnboardingStore.getState().reset();
+      try {
+        queryClient.invalidateQueries({ queryKey: ['user'] });
+        queryClient.invalidateQueries({ queryKey: ['me'] });
+        queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+        useAuthStore.getState().setOnboarded(true);
+        useOnboardingStore.getState().reset();
+        
+        // Explicitly clear the navigation stack and move into the main App stack
+        // instead of relying on the conditional rendering alone.
+        setTimeout(() => {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'App' }],
+          });
+        }, 0);
+      } catch (e) {
+        console.error('Error in handleFinish ONBOARDING logic:', e);
+      }
     } else {
       navigation.goBack();
     }

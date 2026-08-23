@@ -349,7 +349,7 @@ export function PhotoLogSheet({ visible, onClose }: Props) {
 
               {analysisResult.items.map((item) => {
                 const isSelected = selectedItems.has(item.id);
-                const isHighConf = item.category === 'high_confidence';
+                const isUncertain = item.category === 'needs_confirmation' || item.usedDefaultConversion;
                 return (
                   <TouchableOpacity
                     key={item.id}
@@ -358,7 +358,8 @@ export function PhotoLogSheet({ visible, onClose }: Props) {
                       styles.recognizedItem,
                       {
                         backgroundColor: isSelected ? colors.primary + '12' : colors.surface,
-                        borderColor: isSelected ? colors.primary : colors.border,
+                        borderColor: isSelected ? colors.primary : isUncertain ? colors.warning : colors.border,
+                        borderWidth: 1,
                         borderRadius: borderRadius.md,
                         padding: spacing.ms,
                         marginBottom: spacing.sm,
@@ -377,7 +378,7 @@ export function PhotoLogSheet({ visible, onClose }: Props) {
                           <Text style={[typo.body, { color: colors.text, fontWeight: '600', flex: 1 }]}>
                             {item.name}
                           </Text>
-                          {!isHighConf && (
+                          {isUncertain && (
                             <View
                               style={[
                                 styles.confBadge,
@@ -386,12 +387,14 @@ export function PhotoLogSheet({ visible, onClose }: Props) {
                                   borderRadius: borderRadius.sm,
                                   paddingHorizontal: spacing.xs,
                                   paddingVertical: 2,
+                                  flexDirection: 'row',
+                                  alignItems: 'center'
                                 },
                               ]}
                             >
                               <Ionicons name="alert-circle" size={12} color={colors.warning} style={{ marginRight: 2 }} />
                               <Text style={[typo.caption, { color: colors.warning, fontSize: 10 }]}>
-                                {Math.round(item.confidence * 100)}%
+                                Please confirm
                               </Text>
                             </View>
                           )}

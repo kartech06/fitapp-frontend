@@ -20,6 +20,7 @@ export interface WorkoutsTodayResponse {
   workouts: WorkoutLog[];
   count: number;
   totalSets: number;
+  totalCaloriesBurned: number;
 }
 
 export async function getWorkoutsToday(): Promise<WorkoutsTodayResponse> {
@@ -95,6 +96,12 @@ export interface WorkoutPlan {
   days: PlanDay[];
 }
 
+export interface MissedDay {
+  dayIndex: number;
+  dayName: string;
+  date: string;
+}
+
 export interface TodayWorkoutResponse {
   isRestDay: boolean;
   message?: string;
@@ -105,12 +112,27 @@ export interface TodayWorkoutResponse {
   weekNumber?: number;
   exercises?: PlanExercise[];
   isCompletedToday?: boolean;
+  
+  missedDays?: MissedDay[];
+  overrideDay?: {
+    id: string;
+    dayIndex: number;
+    dayName: string;
+    weekNumber: number;
+    exercises: PlanExercise[];
+    isCompletedToday?: boolean;
+  };
 }
 
 export interface CompleteWeekResponse {
   message: string;
   currentWeek: number;
   isDeload: boolean;
+  completionSummary?: {
+    totalDays: number;
+    completedDays: number;
+    missedDays: number;
+  };
 }
 
 export interface AbandonResponse {
@@ -162,6 +184,25 @@ export async function completeWeek(
 ): Promise<CompleteWeekResponse> {
   const { data } = await api.post<CompleteWeekResponse>(
     `/workout-plans/${planId}/complete-week`,
+  );
+  return data;
+}
+
+export interface RecoverMissedDayRequest {
+  missedDayIndex: number;
+  action: 'DO_TODAY' | 'SKIP';
+}
+
+/**
+ * Recover a missed day (either do it today or skip it).
+ */
+export async function recoverMissedDay(
+  planId: string,
+  payload: RecoverMissedDayRequest
+): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>(
+    `/workout-plans/${planId}/recover-missed-day`,
+    payload
   );
   return data;
 }

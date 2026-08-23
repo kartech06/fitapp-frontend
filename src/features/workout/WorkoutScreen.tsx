@@ -34,6 +34,7 @@ import {
   getTodayWorkout,
   completeWeek,
   abandonPlan,
+  recoverMissedDay,
   type WorkoutPlan,
   type TodayWorkoutResponse,
   type PlanExercise,
@@ -80,13 +81,30 @@ export function WorkoutScreen() {
   const completeWeekMutation = useMutation({
     mutationFn: () => completeWeek(activePlan!.id),
     onSuccess: (res) => {
+      let msg = res.message;
+      if (res.completionSummary) {
+        msg = `You completed ${res.completionSummary.completedDays}/${res.completionSummary.totalDays} days this week.\n\n${msg}`;
+      }
       Alert.alert(
         res.isDeload ? '🧘 Deload Week' : '🎉 Week Complete!',
-        res.message,
+        msg,
       );
       queryClient.invalidateQueries({ queryKey: ['workoutPlan'] });
       queryClient.invalidateQueries({ queryKey: ['todayWorkout'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+  });
+
+  const recoverMissedDayMutation = useMutation({
+    mutationFn: ({ index, action }: { index: number; action: 'DO_TODAY' | 'SKIP' }) =>
+      recoverMissedDay(activePlan!.id, { missedDayIndex: index, action }),
+    onSuccess: (res) => {
+      Alert.alert('Success', res.message);
+      queryClient.invalidateQueries({ queryKey: ['todayWorkout'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to recover day');
     },
   });
 
@@ -337,8 +355,105 @@ export function WorkoutScreen() {
               </Text>
             </AIPanel>
 
+            {/* Missed Days Banner */}
+            {!todayWorkout?.overrideDay && (todayWorkout?.missedDays?.length ?? 0) > 0 && (
+              <View style={{ marginBottom: spacing.lg }}>
+                {todayWorkout!.missedDays!.map((md) => (
+                  <Card key={md.dayIndex} style={{ marginBottom: spacing.sm, backgroundColor: `${colors.error}10`, borderColor: `${colors.error}30` }}>
+                    <Text style={[typo.h3, { color: colors.text, marginBottom: spacing.xs }]}>
+                      You missed: {md.dayName}
+                    </Text>
+                    <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.md }]}>
+                      Scheduled for {md.date}. What would you like to do?
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                      <View style={{ flex: 1 }}>
+                        <Button
+                          title="Do it today"
+                          variant="primary"
+                          onPress={() => recoverMissedDayMutation.mutate({ index: md.dayIndex, action: 'DO_TODAY' })}
+                          disabled={recoverMissedDayMutation.isPending}
+                        />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Button
+                          title="Skip"
+                          variant="outline"
+                          onPress={() => recoverMissedDayMutation.mutate({ index: md.dayIndex, action: 'SKIP' })}
+                          disabled={recoverMissedDayMutation.isPending}
+                        />
+                      </View>
+                    </View>
+                  </Card>
+                ))}
+              </View>
+            )}
+
+            {/* Override Day Choice */}
+            {todayWorkout?.overrideDay && (
+              <View style={{ marginBottom: spacing.lg }}>
+                <Text style={[typo.h3, { color: colors.text, marginBottom: spacing.sm }]}>Choose your workout</Text>
+                
+                {/* Recovering Card */}
+                <Card style={{ marginBottom: spacing.sm, borderColor: colors.primary }}>
+                  <Text style={[typo.caption, { color: colors.primary, fontWeight: 'bold', marginBottom: 4 }]}>RECOVERING MISSED</Text>
+                  <Text style={[typo.h3, { color: colors.text, marginBottom: spacing.sm }]}>{todayWorkout.overrideDay.dayName}</Text>
+                  <Button
+                    title={todayWorkout.overrideDay.isCompletedToday ? "Review Workout" : "Start Workout 💪"}
+                    variant={todayWorkout.overrideDay.isCompletedToday ? "outline" : "primary"}
+                    onPress={() => {
+                      navigation.navigate('WorkoutLog' as never, {
+                        plannedExercises: todayWorkout!.overrideDay!.exercises.map((e) => ({
+                          planExerciseId: e.id,
+                          exerciseId: e.exerciseId || e.id,
+                          name: e.exercise.name,
+                          actualExerciseName: e.actualExerciseName,
+                          sets: e.sets,
+                          reps: e.reps,
+                          weightKg: e.targetWeightKg,
+                          completedToday: e.completedToday,
+                          primaryMuscles: e.exercise.primaryMuscles,
+                        })),
+                      } as never);
+                    }}
+                  />
+                </Card>
+
+                {/* Scheduled Card */}
+                <Card>
+                  <Text style={[typo.caption, { color: colors.textDim, fontWeight: 'bold', marginBottom: 4 }]}>SCHEDULED TODAY</Text>
+                  <Text style={[typo.h3, { color: colors.text, marginBottom: spacing.sm }]}>
+                    {todayWorkout.isRestDay ? "Rest Day" : todayWorkout.dayName}
+                  </Text>
+                  {todayWorkout.isRestDay ? (
+                    <Text style={[typo.body, { color: colors.textDim }]}>Recovery is part of the plan.</Text>
+                  ) : (
+                    <Button
+                      title={todayWorkout.isCompletedToday ? "Review Workout" : "Start Workout"}
+                      variant={todayWorkout.isCompletedToday ? "outline" : "outline"}
+                      onPress={() => {
+                        navigation.navigate('WorkoutLog' as never, {
+                          plannedExercises: todayWorkout!.exercises!.map((e) => ({
+                            planExerciseId: e.id,
+                            exerciseId: e.exerciseId || e.id,
+                            name: e.exercise.name,
+                            actualExerciseName: e.actualExerciseName,
+                            sets: e.sets,
+                            reps: e.reps,
+                            weightKg: e.targetWeightKg,
+                            completedToday: e.completedToday,
+                            primaryMuscles: e.exercise.primaryMuscles,
+                          })),
+                        } as never);
+                      }}
+                    />
+                  )}
+                </Card>
+              </View>
+            )}
+
             {/* Today's Exercises or Rest Day */}
-            {todayWorkout?.isRestDay ? (
+            {!todayWorkout?.overrideDay && (todayWorkout?.isRestDay ? (
               <Card style={{ marginBottom: spacing.lg }}>
                 <View style={styles.restDayContent}>
                   <Ionicons name="bed" size={32} color={colors.textDim} />
@@ -448,11 +563,11 @@ export function WorkoutScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
-            )}
+            ))}
 
             {/* Action Buttons */}
             <View style={{ marginTop: spacing.md, gap: spacing.sm }}>
-              {!todayWorkout?.isRestDay && (todayWorkout?.exercises?.length ?? 0) > 0 && (
+              {!todayWorkout?.overrideDay && !todayWorkout?.isRestDay && (todayWorkout?.exercises?.length ?? 0) > 0 && (
                 <Button
                   title={todayWorkout?.isCompletedToday ? "Review Workout" : "Start Workout 💪"}
                   variant={todayWorkout?.isCompletedToday ? "outline" : "primary"}

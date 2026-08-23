@@ -6,6 +6,8 @@ export interface DashboardCalories {
   consumed: number;
   goal: number;
   remaining: number;
+  burned: number;
+  burnedDisclaimer: string;
 }
 
 export interface DashboardMacro {

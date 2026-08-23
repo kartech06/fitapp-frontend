@@ -43,6 +43,11 @@ export async function login(data: LoginRequest): Promise<AuthResponse> {
   return res.data;
 }
 
+export async function googleSignIn(idToken: string): Promise<AuthResponse> {
+  const res = await api.post<AuthResponse>('/auth/google/id-token', { idToken });
+  return res.data;
+}
+
 export async function register(data: RegisterRequest): Promise<AuthResponse> {
   const res = await api.post<AuthResponse>('/auth/register', data);
   return res.data;

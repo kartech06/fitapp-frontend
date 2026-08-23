@@ -196,6 +196,7 @@ export interface RecognizedItem {
   category: 'high_confidence' | 'needs_confirmation';
   suggestedServingSize: number;
   suggestedServingUnit: string;
+  usedDefaultConversion: boolean;
 }
 
 export interface PhotoAnalysisResponse {

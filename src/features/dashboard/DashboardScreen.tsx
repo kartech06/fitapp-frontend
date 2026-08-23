@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Platform,
   ToastAndroid,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -145,6 +146,14 @@ export function DashboardScreen() {
                 {formatCalories(dashboard.calories.consumed)} of {formatCalories(dashboard.calories.goal)} kcal
               </Text>
 
+              {dashboard.calories.burned > 0 && (
+                <TouchableOpacity onPress={() => Alert.alert('Estimated Burn', dashboard.calories.burnedDisclaimer)}>
+                  <Text style={[typo.caption, { color: colors.primary, marginBottom: spacing.md }]}>
+                    🔥 {formatCalories(dashboard.calories.burned)} kcal burned (est.)
+                  </Text>
+                </TouchableOpacity>
+              )}
+
               {/* Macro Bar */}
               <View style={{ width: '100%' }}>
                 <MacroBar
@@ -191,51 +200,126 @@ export function DashboardScreen() {
             </Text>
           </View>
         ) : isBasic && todayWorkout ? (
-          <AIPanel label="Today's Plan" style={{ marginBottom: spacing.xl }}>
-            {todayWorkout.isRestDay ? (
-              <Text style={[typo.body, { color: colors.text }]}>Today is a rest day. Take it easy!</Text>
-            ) : (
-              <View>
-                {todayWorkout.isCompletedToday ? (
-                  <>
-                    <Text style={[typo.h3, { color: colors.success || colors.primary, marginBottom: spacing.xs }]}>
-                      ✅ Workout Complete!
-                    </Text>
-                    <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.md }]}>
-                      {todayWorkout.dayName} — {todayWorkout.exercises?.length || 0} exercises
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={[typo.h3, { color: colors.text }]}>
-                      {todayWorkout.dayName}
-                    </Text>
-                    <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.md }]}>
-                      {todayWorkout.exercises?.length || 0} exercises planned
-                    </Text>
-                  </>
-                )}
-                <Button
-                  title={todayWorkout.isCompletedToday ? "Review Workout" : "View Full Workout"}
-                  variant={todayWorkout.isCompletedToday ? "outline" : "primary"}
-                  onPress={() => {
-                    const plannedExercises = todayWorkout.exercises?.map((ex) => ({
-                      planExerciseId: ex.id,
-                      exerciseId: ex.exerciseId,
-                      name: ex.exercise.name,
-                      actualExerciseName: ex.actualExerciseName,
-                      sets: ex.sets,
-                      reps: ex.reps,
-                      weightKg: ex.targetWeightKg,
-                      completedToday: ex.completedToday,
-                      primaryMuscles: ex.exercise.primaryMuscles,
-                    })) || [];
-                    navigation.navigate('WorkoutLog', { plannedExercises });
-                  }}
-                />
-              </View>
+          <View style={{ marginBottom: spacing.xl }}>
+            {/* Subtle Missed Days Hint */}
+            {!todayWorkout.overrideDay && (todayWorkout.missedDays?.length ?? 0) > 0 && (
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: `${colors.error}10`, padding: spacing.md, borderRadius: borderRadius.md, marginBottom: spacing.md }}
+                onPress={() => navigation.navigate('Workout')}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="alert-circle" size={20} color={colors.error} />
+                <Text style={[typo.bodySmall, { color: colors.text, marginLeft: spacing.sm, flex: 1 }]}>
+                  You have missed workouts to recover. Tap to view.
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color={colors.error} />
+              </TouchableOpacity>
             )}
-          </AIPanel>
+
+            {todayWorkout.overrideDay ? (
+              <AIPanel label="Choose Your Workout">
+                {/* Recovering Card */}
+                <Card style={{ marginBottom: spacing.sm, borderColor: colors.primary }}>
+                  <Text style={[typo.caption, { color: colors.primary, fontWeight: 'bold', marginBottom: 4 }]}>RECOVERING MISSED</Text>
+                  <Text style={[typo.h3, { color: colors.text, marginBottom: spacing.sm }]}>{todayWorkout.overrideDay.dayName}</Text>
+                  <Button
+                    title={todayWorkout.overrideDay.isCompletedToday ? "Review Workout" : "Start Workout 💪"}
+                    variant={todayWorkout.overrideDay.isCompletedToday ? "outline" : "primary"}
+                    onPress={() => {
+                      const plannedExercises = todayWorkout.overrideDay!.exercises.map((ex) => ({
+                        planExerciseId: ex.id,
+                        exerciseId: ex.exerciseId || ex.id,
+                        name: ex.exercise.name,
+                        actualExerciseName: ex.actualExerciseName,
+                        sets: ex.sets,
+                        reps: ex.reps,
+                        weightKg: ex.targetWeightKg,
+                        completedToday: ex.completedToday,
+                        primaryMuscles: ex.exercise.primaryMuscles,
+                      }));
+                      navigation.navigate('WorkoutLog', { plannedExercises });
+                    }}
+                  />
+                </Card>
+
+                {/* Scheduled Card */}
+                <Card>
+                  <Text style={[typo.caption, { color: colors.textDim, fontWeight: 'bold', marginBottom: 4 }]}>SCHEDULED TODAY</Text>
+                  <Text style={[typo.h3, { color: colors.text, marginBottom: spacing.sm }]}>
+                    {todayWorkout.isRestDay ? "Rest Day" : todayWorkout.dayName}
+                  </Text>
+                  {todayWorkout.isRestDay ? (
+                    <Text style={[typo.body, { color: colors.textDim }]}>Recovery is part of the plan.</Text>
+                  ) : (
+                    <Button
+                      title={todayWorkout.isCompletedToday ? "Review Workout" : "Start Workout"}
+                      variant={todayWorkout.isCompletedToday ? "outline" : "outline"}
+                      onPress={() => {
+                        const plannedExercises = todayWorkout.exercises?.map((ex) => ({
+                          planExerciseId: ex.id,
+                          exerciseId: ex.exerciseId || ex.id,
+                          name: ex.exercise.name,
+                          actualExerciseName: ex.actualExerciseName,
+                          sets: ex.sets,
+                          reps: ex.reps,
+                          weightKg: ex.targetWeightKg,
+                          completedToday: ex.completedToday,
+                          primaryMuscles: ex.exercise.primaryMuscles,
+                        })) || [];
+                        navigation.navigate('WorkoutLog', { plannedExercises });
+                      }}
+                    />
+                  )}
+                </Card>
+              </AIPanel>
+            ) : (
+              <AIPanel label="Today's Plan">
+                {todayWorkout.isRestDay ? (
+                  <Text style={[typo.body, { color: colors.text }]}>Today is a rest day. Take it easy!</Text>
+                ) : (
+                  <View>
+                    {todayWorkout.isCompletedToday ? (
+                      <>
+                        <Text style={[typo.h3, { color: colors.success || colors.primary, marginBottom: spacing.xs }]}>
+                          ✅ Workout Complete!
+                        </Text>
+                        <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.md }]}>
+                          {todayWorkout.dayName} — {todayWorkout.exercises?.length || 0} exercises
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={[typo.h3, { color: colors.text }]}>
+                          {todayWorkout.dayName}
+                        </Text>
+                        <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.md }]}>
+                          {todayWorkout.exercises?.length || 0} exercises planned
+                        </Text>
+                      </>
+                    )}
+                    <Button
+                      title={todayWorkout.isCompletedToday ? "Review Workout" : "View Full Workout"}
+                      variant={todayWorkout.isCompletedToday ? "outline" : "primary"}
+                      onPress={() => {
+                        const plannedExercises = todayWorkout.exercises?.map((ex) => ({
+                          planExerciseId: ex.id,
+                          exerciseId: ex.exerciseId || ex.id,
+                          name: ex.exercise.name,
+                          actualExerciseName: ex.actualExerciseName,
+                          sets: ex.sets,
+                          reps: ex.reps,
+                          weightKg: ex.targetWeightKg,
+                          completedToday: ex.completedToday,
+                          primaryMuscles: ex.exercise.primaryMuscles,
+                        })) || [];
+                        navigation.navigate('WorkoutLog', { plannedExercises });
+                      }}
+                    />
+                  </View>
+                )}
+              </AIPanel>
+            )}
+          </View>
         ) : null}
 
         {/* LOGGED TODAY LEDGER */}
@@ -329,6 +413,7 @@ export function DashboardScreen() {
                       {w.sets} sets
                       {w.reps ? ` × ${w.reps} reps` : ''}
                       {w.weightKg ? ` @ ${w.weightKg}kg` : ''}
+                      {w.caloriesBurned ? ` • 🔥 ${w.caloriesBurned} kcal` : ''}
                     </Text>
                   </View>
                 </TouchableOpacity>

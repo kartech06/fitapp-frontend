@@ -22,6 +22,12 @@ import { useAuthStore } from './src/shared/store/authStore';
 import { useThemeStore } from './src/shared/store/themeStore';
 import { RootNavigator } from './src/shared/navigation/RootNavigator';
 import { darkColors, lightColors } from './src/shared/theme/colors';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+
+GoogleSignin.configure({
+  webClientId: '279696333333-1vu4ivdeqp57ppfmlsra2ebrardhprgp.apps.googleusercontent.com',
+  offlineAccess: false,
+});
 
 export default function App() {
   const [ready, setReady] = useState(false);

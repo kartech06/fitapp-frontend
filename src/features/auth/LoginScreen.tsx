@@ -26,7 +26,8 @@ import { Button } from '../../shared/components/Button';
 import { Input } from '../../shared/components/Input';
 import { useAuthStore } from '../../shared/store/authStore';
 import { useOnboardingStore } from '../../shared/store/onboardingStore';
-import { login } from '../../shared/api/auth.api';
+import { login, googleSignIn } from '../../shared/api/auth.api';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { getMe } from '../../shared/api/user.api';
 import { loginSchema, type LoginFormData } from './schemas';
 import type { AuthStackParamList } from '../../shared/navigation/types';
@@ -103,6 +104,54 @@ export function LoginScreen() {
       const message =
         err?.response?.data?.message || 'Something went wrong. Please try again.';
       setApiError(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setApiError(null);
+    setLoading(true);
+
+    try {
+      await GoogleSignin.hasPlayServices();
+      const response = await GoogleSignin.signIn();
+      
+      if (response.type === 'success' && response.data.idToken) {
+        const authRes = await googleSignIn(response.data.idToken);
+
+        await useAuthStore.getState().setTokens({
+          accessToken: authRes.accessToken,
+          refreshToken: authRes.refreshToken,
+        });
+
+        const me = await getMe();
+        const hasGoal = !!me.goal;
+
+        await useAuthStore.getState().setAuth({
+          user: authRes.user,
+          accessToken: authRes.accessToken,
+          refreshToken: authRes.refreshToken,
+          isOnboarded: hasGoal,
+        });
+
+        if (me.subscription) {
+          useAuthStore.getState().setPlan(me.subscription.plan);
+        }
+
+        if (!hasGoal) {
+          useOnboardingStore.getState().reset();
+        }
+      }
+    } catch (err: any) {
+      console.log('[DIAG] Google Sign-In error:', JSON.stringify(err, null, 2));
+      console.log('[DIAG] Error code:', err?.code);
+      console.log('[DIAG] Error message:', err?.message);
+      
+      if (err.code !== 'SIGN_IN_CANCELLED') {
+        const message = err?.response?.data?.message || 'Google Sign-In failed. Please try again.';
+        setApiError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -232,7 +281,7 @@ export function LoginScreen() {
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
         </View>
 
-        {/* Google Sign In (UI only) */}
+        {/* Google Sign In */}
         <TouchableOpacity
           style={[
             styles.socialButton,
@@ -241,12 +290,12 @@ export function LoginScreen() {
               borderColor: colors.border,
               borderRadius: borderRadius.md,
               paddingVertical: spacing.ms,
+              opacity: loading ? 0.7 : 1,
             },
           ]}
           activeOpacity={0.7}
-          onPress={() => {
-            // TODO: Wire up Google OAuth when credentials are configured
-          }}
+          disabled={loading}
+          onPress={handleGoogleSignIn}
         >
           <Ionicons name="logo-google" size={20} color={colors.text} />
           <Text
