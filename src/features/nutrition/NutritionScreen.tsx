@@ -35,6 +35,7 @@ import { AIPanel } from '../../shared/components/AIPanel';
 import { Card } from '../../shared/components/Card';
 import { ProgressRing } from '../../shared/components/ProgressRing';
 import { MacroBar } from '../../shared/components/MacroBar';
+import { Button } from '../../shared/components/Button';
 import { getDashboardToday, type DashboardAggregated } from '../../shared/api/dashboard.api';
 import {
   getDietPlanToday,
@@ -77,12 +78,13 @@ export function NutritionScreen() {
     isLoading: dashLoading,
     refetch: refetchDash,
     isRefetching,
+    isError: isDashError,
   } = useQuery<DashboardAggregated>({
     queryKey: ['dashboard'],
     queryFn: getDashboardToday,
   });
 
-  const { data: mealsData, isLoading: mealsLoading, refetch: refetchMeals } = useQuery<MealsTodayResponse>({
+  const { data: mealsData, isLoading: mealsLoading, refetch: refetchMeals, isError: isMealsError } = useQuery<MealsTodayResponse>({
     queryKey: ['mealsToday'],
     queryFn: getMealsToday,
   });
@@ -140,6 +142,23 @@ export function NutritionScreen() {
       { type: 'EVENING_SNACK' as const, label: 'Evening Snack', meals: mealsData?.meals?.EVENING_SNACK || [] },
     ] as { type: MealType; label: string; meals: MealLog[] }[]
   ).filter((g) => g.meals.length > 0);
+
+  const isError = isDashError || isMealsError;
+
+  if (isError && !dashData && !mealsData) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingHorizontal: spacing.lg, justifyContent: 'center' }]}>
+        <Card style={{ alignItems: 'center', padding: spacing.xl }}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} style={{ marginBottom: spacing.md }} />
+          <Text style={[typo.h3, { color: colors.text, marginBottom: spacing.sm }]}>Could not load data</Text>
+          <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.lg, textAlign: 'center' }]}>
+            There was a problem loading your nutrition data.
+          </Text>
+          <Button title="Retry" onPress={handleRefresh} variant="primary" />
+        </Card>
+      </View>
+    );
+  }
 
   // Skeleton placeholder
   const Skeleton = ({ width, height }: { width: number | string; height: number }) => (

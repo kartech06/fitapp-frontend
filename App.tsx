@@ -23,6 +23,7 @@ import { useThemeStore } from './src/shared/store/themeStore';
 import { RootNavigator } from './src/shared/navigation/RootNavigator';
 import { darkColors, lightColors } from './src/shared/theme/colors';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { ErrorBoundary } from './src/shared/components/ErrorBoundary';
 
 GoogleSignin.configure({
   webClientId: '279696333333-1vu4ivdeqp57ppfmlsra2ebrardhprgp.apps.googleusercontent.com',
@@ -98,7 +99,9 @@ export default function App() {
       <PaperProvider theme={paperTheme}>
         <SafeAreaProvider>
           <StatusBar style={isDark ? 'light' : 'dark'} />
-          <RootNavigator />
+          <ErrorBoundary>
+            <RootNavigator />
+          </ErrorBoundary>
         </SafeAreaProvider>
       </PaperProvider>
     </QueryClientProvider>

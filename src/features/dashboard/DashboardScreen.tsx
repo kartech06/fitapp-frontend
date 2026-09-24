@@ -51,7 +51,7 @@ export function DashboardScreen() {
   const [showMealAction, setShowMealAction] = useState(false);
 
   // Fetch dashboard + meals + workouts for today
-  const { data, isLoading, refetch, isRefetching } = useQuery<DashboardAggregated>({
+  const { data, isLoading, refetch, isRefetching, isError } = useQuery<DashboardAggregated>({
     queryKey: ['dashboard'],
     queryFn: getDashboardToday,
   });
@@ -86,6 +86,22 @@ export function DashboardScreen() {
     month: 'short',
     day: 'numeric',
   });
+
+  // Render error state
+  if (isError && !data) {
+    return (
+      <View style={[styles.container, { backgroundColor: colors.background, paddingTop: insets.top, paddingHorizontal: spacing.lg, justifyContent: 'center' }]}>
+        <Card style={{ alignItems: 'center', padding: spacing.xl }}>
+          <Ionicons name="alert-circle-outline" size={48} color={colors.error} style={{ marginBottom: spacing.md }} />
+          <Text style={[typo.h3, { color: colors.text, marginBottom: spacing.sm }]}>Could not load data</Text>
+          <Text style={[typo.body, { color: colors.textDim, marginBottom: spacing.lg, textAlign: 'center' }]}>
+            There was a problem loading your dashboard.
+          </Text>
+          <Button title="Retry" onPress={handleRefresh} variant="primary" />
+        </Card>
+      </View>
+    );
+  }
 
   // Render skeleton while loading
   if (isLoading || !data || (isBasic && isLoadingWorkout)) {

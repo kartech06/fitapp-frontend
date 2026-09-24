@@ -14,3 +14,4 @@ export { Badge } from './Badge';
 export type { BadgeProps, BadgeVariant } from './Badge';
 export { ScreenHeader } from './ScreenHeader';
 export type { ScreenHeaderProps } from './ScreenHeader';
+export { ErrorBoundary } from './ErrorBoundary';
